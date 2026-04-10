@@ -243,6 +243,11 @@ a:hover {
   margin-bottom: 18px;
 }
 
+.settings-url-field {
+  max-width: 540px;
+  margin-bottom: 18px;
+}
+
 .settings-actions {
   display: flex;
   align-items: center;

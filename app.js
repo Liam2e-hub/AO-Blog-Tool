@@ -6,13 +6,11 @@
 // ============================================================
 // Constants
 // ============================================================
-const CLAUDE_MODEL      = 'claude-sonnet-4-6';
-const CLAUDE_ENDPOINT   = 'https://api.anthropic.com/v1/messages';
+const CLAUDE_MODEL = 'claude-sonnet-4-6';
 
-// Output Log page ID from the Accelerate Offshoring Notion workspace.
-// Notion API calls are proxied through the Cloudflare Worker — the
-// Notion API key lives as a Worker secret, not in the browser.
-const NOTION_OUTPUT_LOG_ID = '33e743b0-d5d4-813a-a17a-fb7dee5df3eb';
+// All API keys (Anthropic, Notion) and the Notion Output Log page ID
+// live in the Cloudflare Worker as secrets / environment variables.
+// The browser only stores the Worker base URL.
 
 // ============================================================
 // System Prompt
@@ -178,26 +176,21 @@ function toggleSettings(forceOpen) {
 }
 
 function loadApiKeys() {
-  document.getElementById('claudeKey').value       = localStorage.getItem('ao_claude_key') || '';
-  document.getElementById('notionWorkerUrl').value = localStorage.getItem('ao_notion_worker_url') || '';
+  document.getElementById('workerUrl').value = localStorage.getItem('ao_worker_url') || '';
 }
 
 function saveApiKeys() {
-  const claudeKey       = document.getElementById('claudeKey').value.trim();
-  const notionWorkerUrl = document.getElementById('notionWorkerUrl').value.trim();
-
-  localStorage.setItem('ao_claude_key',         claudeKey);
-  localStorage.setItem('ao_notion_worker_url',  notionWorkerUrl);
+  const workerUrl = document.getElementById('workerUrl').value.trim();
+  localStorage.setItem('ao_worker_url', workerUrl);
 
   const status = document.getElementById('saveStatus');
-  status.textContent = '✓ Keys saved';
+  status.textContent = '✓ Saved';
   setTimeout(() => { status.textContent = ''; }, 3000);
 }
 
 function getStoredKeys() {
   return {
-    claude:           localStorage.getItem('ao_claude_key') || '',
-    notionWorkerUrl:  localStorage.getItem('ao_notion_worker_url') || ''
+    workerUrl: localStorage.getItem('ao_worker_url') || ''
   };
 }
 
@@ -207,7 +200,7 @@ function getStoredKeys() {
 async function handleGenerate() {
   const keys = getStoredKeys();
 
-  if (!keys.claude) {
+  if (!keys.workerUrl) {
     document.getElementById('apiKeyReminder').hidden = false;
     return;
   }
@@ -220,23 +213,16 @@ async function handleGenerate() {
   clearOutput();
 
   try {
-    // 1. Call Claude
-    const rawOutput = await callClaudeAPI(keys.claude, inputs);
+    // 1. Call Claude (via Worker /claude route)
+    const rawOutput = await callClaudeAPI(keys.workerUrl, inputs);
     lastRawOutput = rawOutput;
     lastParsed    = parseBlogOutput(rawOutput);
 
     // 2. Render preview
     renderBlogPreview(lastParsed, rawOutput);
 
-    // 3. Write to Notion (via Cloudflare Worker proxy)
-    if (keys.notionWorkerUrl) {
-      await writeToNotion(keys.notionWorkerUrl, lastParsed, rawOutput);
-    } else {
-      setNotionStatus('warning',
-        'No Notion Worker URL saved — blog not written to Notion. ' +
-        'Deploy the Cloudflare Worker and add its URL in Settings to enable automatic saving.'
-      );
-    }
+    // 3. Write to Notion (via Worker /notion route)
+    await writeToNotion(keys.workerUrl, lastParsed, rawOutput);
 
   } catch (err) {
     console.error('Generation error:', err);
@@ -308,30 +294,33 @@ function clearOutput() {
 }
 
 // ============================================================
-// Claude API Call
+// Claude API Call (routed via Cloudflare Worker /claude)
+// The Worker injects the Anthropic API key server-side.
 // ============================================================
-async function callClaudeAPI(apiKey, inputs) {
-  const response = await fetch(CLAUDE_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type':                           'application/json',
-      'x-api-key':                              apiKey,
-      'anthropic-version':                      '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model:      CLAUDE_MODEL,
-      max_tokens: 4096,
-      system:     SYSTEM_PROMPT,
-      messages: [
-        { role: 'user', content: buildUserMessage(inputs) }
-      ]
-    })
-  });
+async function callClaudeAPI(workerUrl, inputs) {
+  let response;
+  try {
+    response = await fetch(`${workerUrl}/claude`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model:      CLAUDE_MODEL,
+        max_tokens: 4096,
+        system:     SYSTEM_PROMPT,
+        messages: [
+          { role: 'user', content: buildUserMessage(inputs) }
+        ]
+      })
+    });
+  } catch (networkErr) {
+    throw new Error(
+      'Could not reach the Worker. Check the URL in Settings and ensure the Worker is deployed.'
+    );
+  }
 
   if (!response.ok) {
     const errData = await response.json().catch(() => ({}));
-    const msg     = errData?.error?.message || `Claude API responded with status ${response.status}.`;
+    const msg     = errData?.error?.message || errData?.error || `Worker /claude responded with status ${response.status}.`;
     throw new Error(msg);
   }
 
@@ -525,11 +514,11 @@ function sanitiseText(str) {
 }
 
 // ============================================================
-// Notion API — Write Blog as Child Page (via Cloudflare Worker proxy)
+// Notion — Write Blog as Child Page (routed via Worker /notion)
 //
-// The browser sends the Notion page payload to the Worker URL.
-// The Worker adds the Notion API key (stored as a Worker secret)
-// and forwards the request to api.notion.com — no key in the browser.
+// The browser sends only { title, blocks } — no API key, no page ID.
+// The Worker injects NOTION_API_KEY and NOTION_OUTPUT_LOG_ID
+// from its own secret/environment store and constructs the full payload.
 // ============================================================
 async function writeToNotion(workerUrl, parsed, rawText) {
   setNotionStatus('loading', 'Saving to Notion Output Log…');
@@ -537,43 +526,30 @@ async function writeToNotion(workerUrl, parsed, rawText) {
   const pageTitle = parsed.title ||
     `Blog Post — ${new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })}`;
 
-  const blocks     = markdownToNotionBlocks(rawText);
-  const firstBatch = blocks.slice(0, 100); // Notion: max 100 children per request
-
-  const notionPayload = {
-    parent: {
-      type:    'page_id',
-      page_id: NOTION_OUTPUT_LOG_ID
-    },
-    properties: {
-      title: {
-        title: [{ type: 'text', text: { content: pageTitle } }]
-      }
-    },
-    children: firstBatch
-  };
+  const blocks = markdownToNotionBlocks(rawText);
 
   let response;
   try {
-    // POST to the Cloudflare Worker — no Authorization header needed here;
-    // the Worker injects the Notion API key from its own secret store.
-    response = await fetch(workerUrl, {
+    response = await fetch(`${workerUrl}/notion`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(notionPayload)
+      body: JSON.stringify({
+        title:  pageTitle,
+        blocks: blocks       // Worker slices to 100 max
+      })
     });
   } catch (networkErr) {
     setNotionStatus('error',
-      'Could not reach the Notion Worker. ' +
-      'Check that the Worker is deployed and the URL in Settings is correct.'
+      'Could not reach the Worker. ' +
+      'Check the URL in Settings and ensure the Worker is deployed.'
     );
     return;
   }
 
   if (!response.ok) {
     const errData = await response.json().catch(() => ({}));
-    const msg     = errData?.error || errData?.message || `Worker responded with status ${response.status}`;
-    setNotionStatus('error', `Notion Worker: ${sanitiseText(msg)}`);
+    const msg     = errData?.error || errData?.message || `Worker /notion responded with status ${response.status}`;
+    setNotionStatus('error', `Notion: ${sanitiseText(msg)}`);
     return;
   }
 

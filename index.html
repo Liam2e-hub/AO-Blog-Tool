@@ -36,24 +36,17 @@
     ============================================================ -->
     <section class="settings-panel" id="settingsPanel" hidden>
       <div class="settings-inner">
-        <h2 class="section-title">API Configuration</h2>
+        <h2 class="section-title">Configuration</h2>
         <p class="settings-note">
-          Your API keys are saved locally in your browser only — they are never sent to any server other than the Claude and Notion APIs directly.
+          All API keys (Anthropic and Notion) are stored securely as Cloudflare Worker secrets — they never touch the browser. Just enter your deployed Worker URL below.
         </p>
-        <div class="settings-grid">
-          <div class="field-group">
-            <label class="field-label" for="claudeKey">Claude API Key</label>
-            <input type="password" id="claudeKey" class="field-input" placeholder="sk-ant-..." autocomplete="off">
-            <span class="field-hint">From <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer">console.anthropic.com</a></span>
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="notionWorkerUrl">Notion Worker URL</label>
-            <input type="url" id="notionWorkerUrl" class="field-input" placeholder="https://ao-blog-notion-proxy.your-subdomain.workers.dev" autocomplete="off">
-            <span class="field-hint">Your deployed Cloudflare Worker URL — see <code>worker/wrangler.toml</code> for setup steps</span>
-          </div>
+        <div class="field-group settings-url-field">
+          <label class="field-label" for="workerUrl">Cloudflare Worker URL</label>
+          <input type="url" id="workerUrl" class="field-input" placeholder="https://ao-blog-tool.your-subdomain.workers.dev" autocomplete="off">
+          <span class="field-hint">Your deployed Worker URL — see <code>worker/wrangler.toml</code> for setup steps</span>
         </div>
         <div class="settings-actions">
-          <button class="btn-save-settings" id="saveSettings">Save Keys</button>
+          <button class="btn-save-settings" id="saveSettings">Save</button>
           <span class="save-status" id="saveStatus" aria-live="polite"></span>
         </div>
       </div>
@@ -152,7 +145,7 @@
           </span>
         </button>
         <p class="api-key-reminder" id="apiKeyReminder" hidden>
-          Please <button class="link-btn" id="openSettingsLink" type="button">add your Claude API key in Settings</button> before generating.
+          Please <button class="link-btn" id="openSettingsLink" type="button">add your Worker URL in Settings</button> before generating.
         </p>
       </div>
     </section>

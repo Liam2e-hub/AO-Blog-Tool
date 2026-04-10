@@ -2,19 +2,43 @@
 # Accelerate Offshoring — Blog Creation Tool
 # Cloudflare Worker: wrangler.toml
 #
-# Deployment steps:
-#   1. Install Wrangler:   npm install -g wrangler
-#   2. Authenticate:       wrangler login
-#   3. Set the secret:     wrangler secret put NOTION_API_KEY
-#      (When prompted, paste your Notion integration token: secret_...)
-#   4. Deploy:             wrangler deploy
-#   5. Copy the Worker URL (e.g. https://ao-blog-notion-proxy.<subdomain>.workers.dev)
-#      and paste it into the Blog Creation Tool Settings panel.
+# DEPLOYMENT STEPS
+# ─────────────────────────────────────────────────────────────
+# 1. Install Wrangler (one-time):
+#      npm install -g wrangler
+#
+# 2. Authenticate with Cloudflare (one-time):
+#      wrangler login
+#
+# 3. Set secrets via CLI (values are encrypted — never commit them):
+#      wrangler secret put ANTHROPIC_API_KEY
+#        → paste your Anthropic key when prompted  (sk-ant-...)
+#      wrangler secret put NOTION_API_KEY
+#        → paste your Notion integration token     (secret_...)
+#
+# 4. Deploy the Worker:
+#      wrangler deploy
+#
+# 5. Copy the deployed Worker URL shown in the output, e.g.:
+#      https://ao-blog-tool.<your-subdomain>.workers.dev
+#    Paste it into the Blog Creation Tool's Settings panel.
+#
+# UPDATING SECRETS LATER
+#   Just re-run:  wrangler secret put ANTHROPIC_API_KEY
+#   or:           wrangler secret put NOTION_API_KEY
+#
+# VIEWING LOGS
+#   wrangler tail
 # ============================================================
 
-name               = "ao-blog-notion-proxy"
+name               = "ao-blog-tool"
 main               = "worker.js"
 compatibility_date = "2024-11-01"
 
-# Secrets (set via CLI — never put real values here):
-#   wrangler secret put NOTION_API_KEY
+# ── Environment variables (non-sensitive — safe to commit) ──
+[vars]
+NOTION_OUTPUT_LOG_ID = "33e743b0-d5d4-813a-a17a-fb7dee5df3eb"
+
+# ── Secrets (managed via Wrangler CLI — DO NOT add values here) ─
+# ANTHROPIC_API_KEY  →  wrangler secret put ANTHROPIC_API_KEY
+# NOTION_API_KEY     →  wrangler secret put NOTION_API_KEY
