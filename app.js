@@ -8,10 +8,10 @@
 // ============================================================
 const CLAUDE_MODEL      = 'claude-sonnet-4-6';
 const CLAUDE_ENDPOINT   = 'https://api.anthropic.com/v1/messages';
-const NOTION_ENDPOINT   = 'https://api.notion.com/v1/pages';
-const NOTION_API_VER    = '2022-06-28';
 
-// Output Log page ID from the Accelerate Offshoring Notion workspace
+// Output Log page ID from the Accelerate Offshoring Notion workspace.
+// Notion API calls are proxied through the Cloudflare Worker — the
+// Notion API key lives as a Worker secret, not in the browser.
 const NOTION_OUTPUT_LOG_ID = '33e743b0-d5d4-813a-a17a-fb7dee5df3eb';
 
 // ============================================================
@@ -178,16 +178,16 @@ function toggleSettings(forceOpen) {
 }
 
 function loadApiKeys() {
-  document.getElementById('claudeKey').value = localStorage.getItem('ao_claude_key') || '';
-  document.getElementById('notionKey').value  = localStorage.getItem('ao_notion_key') || '';
+  document.getElementById('claudeKey').value       = localStorage.getItem('ao_claude_key') || '';
+  document.getElementById('notionWorkerUrl').value = localStorage.getItem('ao_notion_worker_url') || '';
 }
 
 function saveApiKeys() {
-  const claudeKey = document.getElementById('claudeKey').value.trim();
-  const notionKey  = document.getElementById('notionKey').value.trim();
+  const claudeKey       = document.getElementById('claudeKey').value.trim();
+  const notionWorkerUrl = document.getElementById('notionWorkerUrl').value.trim();
 
-  localStorage.setItem('ao_claude_key', claudeKey);
-  localStorage.setItem('ao_notion_key', notionKey);
+  localStorage.setItem('ao_claude_key',         claudeKey);
+  localStorage.setItem('ao_notion_worker_url',  notionWorkerUrl);
 
   const status = document.getElementById('saveStatus');
   status.textContent = '✓ Keys saved';
@@ -196,8 +196,8 @@ function saveApiKeys() {
 
 function getStoredKeys() {
   return {
-    claude: localStorage.getItem('ao_claude_key') || '',
-    notion: localStorage.getItem('ao_notion_key') || ''
+    claude:           localStorage.getItem('ao_claude_key') || '',
+    notionWorkerUrl:  localStorage.getItem('ao_notion_worker_url') || ''
   };
 }
 
@@ -228,13 +228,13 @@ async function handleGenerate() {
     // 2. Render preview
     renderBlogPreview(lastParsed, rawOutput);
 
-    // 3. Write to Notion
-    if (keys.notion) {
-      await writeToNotion(keys.notion, lastParsed, rawOutput);
+    // 3. Write to Notion (via Cloudflare Worker proxy)
+    if (keys.notionWorkerUrl) {
+      await writeToNotion(keys.notionWorkerUrl, lastParsed, rawOutput);
     } else {
       setNotionStatus('warning',
-        'No Notion API key saved — blog not written to Notion. ' +
-        'Add your key in Settings to enable automatic saving.'
+        'No Notion Worker URL saved — blog not written to Notion. ' +
+        'Deploy the Cloudflare Worker and add its URL in Settings to enable automatic saving.'
       );
     }
 
@@ -525,58 +525,60 @@ function sanitiseText(str) {
 }
 
 // ============================================================
-// Notion API — Write Blog as Child Page
+// Notion API — Write Blog as Child Page (via Cloudflare Worker proxy)
+//
+// The browser sends the Notion page payload to the Worker URL.
+// The Worker adds the Notion API key (stored as a Worker secret)
+// and forwards the request to api.notion.com — no key in the browser.
 // ============================================================
-async function writeToNotion(apiKey, parsed, rawText) {
+async function writeToNotion(workerUrl, parsed, rawText) {
   setNotionStatus('loading', 'Saving to Notion Output Log…');
 
-  const pageTitle = parsed.title || `Blog Post — ${new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })}`;
-  const blocks    = markdownToNotionBlocks(rawText);
+  const pageTitle = parsed.title ||
+    `Blog Post — ${new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })}`;
 
-  // Notion API: max 100 children blocks per request
-  const firstBatch = blocks.slice(0, 100);
+  const blocks     = markdownToNotionBlocks(rawText);
+  const firstBatch = blocks.slice(0, 100); // Notion: max 100 children per request
+
+  const notionPayload = {
+    parent: {
+      type:    'page_id',
+      page_id: NOTION_OUTPUT_LOG_ID
+    },
+    properties: {
+      title: {
+        title: [{ type: 'text', text: { content: pageTitle } }]
+      }
+    },
+    children: firstBatch
+  };
 
   let response;
   try {
-    response = await fetch(NOTION_ENDPOINT, {
+    // POST to the Cloudflare Worker — no Authorization header needed here;
+    // the Worker injects the Notion API key from its own secret store.
+    response = await fetch(workerUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type':    'application/json',
-        'Authorization':   `Bearer ${apiKey}`,
-        'Notion-Version':  NOTION_API_VER
-      },
-      body: JSON.stringify({
-        parent: {
-          type:    'page_id',
-          page_id: NOTION_OUTPUT_LOG_ID
-        },
-        properties: {
-          title: {
-            title: [{ type: 'text', text: { content: pageTitle } }]
-          }
-        },
-        children: firstBatch
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(notionPayload)
     });
   } catch (networkErr) {
-    // Likely a CORS error — Notion API cannot be called directly from most browsers
     setNotionStatus('error',
-      'Could not reach the Notion API — this is usually a CORS restriction when calling from a browser. ' +
-      'Your blog has been generated above. Use the <strong>Copy</strong> buttons to paste it into Notion manually, ' +
-      'or set up a lightweight server-side proxy (e.g. Cloudflare Worker) to enable automatic saving.'
+      'Could not reach the Notion Worker. ' +
+      'Check that the Worker is deployed and the URL in Settings is correct.'
     );
     return;
   }
 
   if (!response.ok) {
     const errData = await response.json().catch(() => ({}));
-    const msg     = errData?.message || errData?.code || `Notion API error (${response.status})`;
-    setNotionStatus('error', `Notion: ${sanitiseText(msg)}`);
+    const msg     = errData?.error || errData?.message || `Worker responded with status ${response.status}`;
+    setNotionStatus('error', `Notion Worker: ${sanitiseText(msg)}`);
     return;
   }
 
   const data    = await response.json();
-  const pageUrl = data.url || `https://notion.so`;
+  const pageUrl = data.url || 'https://notion.so';
 
   setNotionStatus('success',
     `✓ Saved to Notion — <a href="${pageUrl}" target="_blank" rel="noopener noreferrer">Open in Notion</a>`

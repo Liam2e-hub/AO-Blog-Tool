@@ -47,9 +47,9 @@
             <span class="field-hint">From <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer">console.anthropic.com</a></span>
           </div>
           <div class="field-group">
-            <label class="field-label" for="notionKey">Notion API Key</label>
-            <input type="password" id="notionKey" class="field-input" placeholder="secret_..." autocomplete="off">
-            <span class="field-hint">From <a href="https://notion.so/my-integrations" target="_blank" rel="noopener noreferrer">notion.so/my-integrations</a></span>
+            <label class="field-label" for="notionWorkerUrl">Notion Worker URL</label>
+            <input type="url" id="notionWorkerUrl" class="field-input" placeholder="https://ao-blog-notion-proxy.your-subdomain.workers.dev" autocomplete="off">
+            <span class="field-hint">Your deployed Cloudflare Worker URL — see <code>worker/wrangler.toml</code> for setup steps</span>
           </div>
         </div>
         <div class="settings-actions">

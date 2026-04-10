@@ -1,0 +1,20 @@
+# ============================================================
+# Accelerate Offshoring — Blog Creation Tool
+# Cloudflare Worker: wrangler.toml
+#
+# Deployment steps:
+#   1. Install Wrangler:   npm install -g wrangler
+#   2. Authenticate:       wrangler login
+#   3. Set the secret:     wrangler secret put NOTION_API_KEY
+#      (When prompted, paste your Notion integration token: secret_...)
+#   4. Deploy:             wrangler deploy
+#   5. Copy the Worker URL (e.g. https://ao-blog-notion-proxy.<subdomain>.workers.dev)
+#      and paste it into the Blog Creation Tool Settings panel.
+# ============================================================
+
+name               = "ao-blog-notion-proxy"
+main               = "worker.js"
+compatibility_date = "2024-11-01"
+
+# Secrets (set via CLI — never put real values here):
+#   wrangler secret put NOTION_API_KEY
