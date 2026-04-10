@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog Creation Tool — Accelerate Offshoring</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ============================================================
+       HEADER
+  ============================================================ -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo-area">
+        <span class="logo-mark">AO</span>
+        <div class="logo-text">
+          <span class="logo-title">Blog Creation Tool</span>
+          <span class="logo-sub">Accelerate Offshoring</span>
+        </div>
+      </div>
+      <button class="btn-settings" id="toggleSettings" aria-expanded="false">
+        ⚙ Settings
+      </button>
+    </div>
+  </header>
+
+  <main class="main-content">
+
+    <!-- ============================================================
+         SETTINGS PANEL
+    ============================================================ -->
+    <section class="settings-panel" id="settingsPanel" hidden>
+      <div class="settings-inner">
+        <h2 class="section-title">API Configuration</h2>
+        <p class="settings-note">
+          Your API keys are saved locally in your browser only — they are never sent to any server other than the Claude and Notion APIs directly.
+        </p>
+        <div class="settings-grid">
+          <div class="field-group">
+            <label class="field-label" for="claudeKey">Claude API Key</label>
+            <input type="password" id="claudeKey" class="field-input" placeholder="sk-ant-..." autocomplete="off">
+            <span class="field-hint">From <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer">console.anthropic.com</a></span>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="notionKey">Notion API Key</label>
+            <input type="password" id="notionKey" class="field-input" placeholder="secret_..." autocomplete="off">
+            <span class="field-hint">From <a href="https://notion.so/my-integrations" target="_blank" rel="noopener noreferrer">notion.so/my-integrations</a></span>
+          </div>
+        </div>
+        <div class="settings-actions">
+          <button class="btn-save-settings" id="saveSettings">Save Keys</button>
+          <span class="save-status" id="saveStatus" aria-live="polite"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         INPUT FORM
+    ============================================================ -->
+    <section class="form-section card">
+      <h2 class="section-title">Writing Parameters</h2>
+
+      <div class="selectors-grid">
+
+        <div class="field-group">
+          <label class="field-label" for="category">Article Category</label>
+          <select id="category" class="field-select">
+            <option value="">Select a category…</option>
+            <option value="Fair Salaries &amp; Compensation">Fair Salaries &amp; Compensation</option>
+            <option value="Career Growth in Offshoring">Career Growth in Offshoring</option>
+            <option value="Choosing the Right Employer">Choosing the Right Employer</option>
+            <option value="Your Rights &amp; Fair Employment">Your Rights &amp; Fair Employment</option>
+            <option value="Professional Development">Professional Development</option>
+            <option value="Industry Trends &amp; Emerging Roles">Industry Trends &amp; Emerging Roles</option>
+            <option value="Life at Accelerate">Life at Accelerate</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="tone">Tone</label>
+          <select id="tone" class="field-select">
+            <option value="">Select a tone…</option>
+            <option value="Warm &amp; Encouraging">Warm &amp; Encouraging</option>
+            <option value="Informative &amp; Educational">Informative &amp; Educational</option>
+            <option value="Direct &amp; Empowering">Direct &amp; Empowering</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="targetReader">Target Reader</label>
+          <select id="targetReader" class="field-select">
+            <option value="">Select a target reader…</option>
+            <option value="Active Job Seeker">Active Job Seeker</option>
+            <option value="Career Changer (leaving BPO/call centre)">Career Changer (leaving BPO/call centre)</option>
+            <option value="Experienced Professional">Experienced Professional</option>
+            <option value="General Candidate">General Candidate</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="length">Article Length</label>
+          <select id="length" class="field-select">
+            <option value="">Select a length…</option>
+            <option value="Short (~400–600 words)">Short (~400–600 words)</option>
+            <option value="Medium (~800–1,000 words)">Medium (~800–1,000 words)</option>
+            <option value="Long-form (~1,200–1,500 words)">Long-form (~1,200–1,500 words)</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="cta">CTA at Close</label>
+          <select id="cta" class="field-select">
+            <option value="">Select a CTA…</option>
+            <option value="Submit Your CV">Submit Your CV</option>
+            <option value="Explore Current Job Openings">Explore Current Job Openings</option>
+            <option value="No CTA">No CTA</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="seoKeyword">SEO Focus Keyword</label>
+          <input type="text" id="seoKeyword" class="field-input" placeholder="e.g. offshoring jobs Philippines">
+        </div>
+
+      </div><!-- /selectors-grid -->
+
+      <div class="source-area">
+        <label class="field-label" for="sourceMaterial">Source Material</label>
+        <p class="field-hint source-hint">
+          Paste any source content here — article text, notes, key talking points, or reference material. Claude will use this as the basis for the blog post.
+        </p>
+        <textarea
+          id="sourceMaterial"
+          class="field-textarea"
+          rows="12"
+          placeholder="Paste your source material here — articles, research notes, key points, or any content you want the blog to draw from…"
+        ></textarea>
+      </div>
+
+      <div class="generate-area">
+        <button class="btn-generate" id="generateBtn" type="button">
+          <span class="btn-icon" aria-hidden="true">✦</span>
+          <span class="btn-text">Generate Blog Post</span>
+          <span class="btn-loading" hidden>
+            <span class="spinner" aria-hidden="true"></span>
+            <span>Generating…</span>
+          </span>
+        </button>
+        <p class="api-key-reminder" id="apiKeyReminder" hidden>
+          Please <button class="link-btn" id="openSettingsLink" type="button">add your Claude API key in Settings</button> before generating.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         OUTPUT SECTION
+    ============================================================ -->
+    <section class="output-section" id="outputSection" hidden aria-live="polite">
+
+      <div class="output-header">
+        <h2 class="section-title">Generated Blog Post</h2>
+        <div class="output-actions">
+          <button class="btn-secondary" id="copyFullBtn" type="button">Copy Full Output</button>
+          <button class="btn-secondary" id="copyBodyBtn" type="button">Copy Blog Body</button>
+        </div>
+      </div>
+
+      <div class="notion-status" id="notionStatus" aria-live="polite"></div>
+
+      <div class="blog-preview card" id="blogPreview">
+        <!-- Populated by JS -->
+      </div>
+
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>Accelerate Offshoring &mdash; Blog Creation Tool &middot; Powered by Claude AI</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
