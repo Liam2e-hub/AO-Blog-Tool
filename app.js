@@ -180,7 +180,8 @@ function loadApiKeys() {
 }
 
 function saveApiKeys() {
-  const workerUrl = document.getElementById('workerUrl').value.trim();
+  // Strip any trailing slash so appended routes (/claude, /notion) don't produce double slashes
+  const workerUrl = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
   localStorage.setItem('ao_worker_url', workerUrl);
 
   const status = document.getElementById('saveStatus');
@@ -189,8 +190,9 @@ function saveApiKeys() {
 }
 
 function getStoredKeys() {
+  const raw = localStorage.getItem('ao_worker_url') || '';
   return {
-    workerUrl: localStorage.getItem('ao_worker_url') || ''
+    workerUrl: raw.replace(/\/$/, '')  // guard against trailing slash in stored value
   };
 }
 
